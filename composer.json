@@ -7,13 +7,17 @@
         {
             "name": "Daniel Noel-Davies",
             "email": "Daniel.Noel-Davies@endclothing.com"
+        },
+        {
+            "name": "Ralea Alexei",
+            "email": "alexei@liberti.md"
         }
     ],
     "replace": {
         "jimdo/prometheus_client_php": "*"
     },
     "require": {
-        "php": "^7.2",
+        "php": "^8.2",
         "ext-json": "*",
         "guzzlehttp/guzzle": "^6.3",
         "symfony/polyfill-apcu": "^1.6"
