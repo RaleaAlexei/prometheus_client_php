@@ -29,7 +29,81 @@ class LaravelCache implements Adapter
 
     public function updateHistogram(array $data): void
     {
-        // Optional: implement histogram support later
+        $metrics = Cache::get($this->prefix . 'metrics', []);
+
+        $name = $data['name'];
+        $help = $data['help'];
+        $labelNames = $data['labelNames'] ?? [];
+        $labelValues = $data['labelValues'] ?? [];
+        $buckets = $data['buckets'];
+        $value = $data['value'];
+
+        $labelKey = implode('|', $labelValues);
+        $metricKey = "histogram_{$name}";
+
+        if (!isset($metrics[$metricKey])) {
+            $metrics[$metricKey] = [
+                'type' => 'histogram',
+                'name' => $name,
+                'help' => $help,
+                'labelNames' => $labelNames,
+                'samples' => [],
+            ];
+        }
+
+        // Initialize or update buckets
+        foreach ($buckets as $bucket) {
+            if (!isset($metrics[$metricKey]['samples']["{$labelKey}_le_{$bucket}"])) {
+                $metrics[$metricKey]['samples']["{$labelKey}_le_{$bucket}"] = [
+                    'name' => "{$name}_bucket",
+                    'labelNames' => array_merge($labelNames, ['le']),
+                    'labelValues' => array_merge($labelValues, [(string) $bucket]),
+                    'value' => 0,
+                ];
+            }
+
+            if ($value <= $bucket) {
+                $metrics[$metricKey]['samples']["{$labelKey}_le_{$bucket}"]['value'] += 1;
+            }
+        }
+
+        // Always increment +Inf bucket
+        $infKey = "{$labelKey}_le_+Inf";
+        if (!isset($metrics[$metricKey]['samples'][$infKey])) {
+            $metrics[$metricKey]['samples'][$infKey] = [
+                'name' => "{$name}_bucket",
+                'labelNames' => array_merge($labelNames, ['le']),
+                'labelValues' => array_merge($labelValues, ['+Inf']),
+                'value' => 0,
+            ];
+        }
+        $metrics[$metricKey]['samples'][$infKey]['value'] += 1;
+
+        // Total count
+        $countKey = "{$labelKey}_count";
+        if (!isset($metrics[$metricKey]['samples'][$countKey])) {
+            $metrics[$metricKey]['samples'][$countKey] = [
+                'name' => "{$name}_count",
+                'labelNames' => $labelNames,
+                'labelValues' => $labelValues,
+                'value' => 0,
+            ];
+        }
+        $metrics[$metricKey]['samples'][$countKey]['value'] += 1;
+
+        // Total sum
+        $sumKey = "{$labelKey}_sum";
+        if (!isset($metrics[$metricKey]['samples'][$sumKey])) {
+            $metrics[$metricKey]['samples'][$sumKey] = [
+                'name' => "{$name}_sum",
+                'labelNames' => $labelNames,
+                'labelValues' => $labelValues,
+                'value' => 0.0,
+            ];
+        }
+        $metrics[$metricKey]['samples'][$sumKey]['value'] += $value;
+
+        Cache::put($this->prefix . 'metrics', $metrics, now()->addHours(1));
     }
 
     public function updateGauge(array $data): void
