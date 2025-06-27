@@ -9,24 +9,13 @@ class LaravelCache implements Adapter
 {
     protected string $prefix = 'prometheus_';
 
-    /**
-     * @return MetricFamilySamples[]
-     */
     public function collect(): array
     {
         $rawMetrics = Cache::get($this->prefix . 'metrics', []);
         $results = [];
 
         foreach ($rawMetrics as $raw) {
-            $samples = [];
-
-            foreach ($raw['samples'] as $sample) {
-                $samples[] = [
-                    'labelNames' => $raw['labelNames'],
-                    'labelValues' => $sample['labelValues'],
-                    'value' => $sample['value'],
-                ];
-            }
+            $samples = array_values($raw['samples']); // Reset numeric keys
 
             $results[] = new MetricFamilySamples([
                 'name' => $raw['name'],
@@ -39,9 +28,10 @@ class LaravelCache implements Adapter
 
         return $results;
     }
+
     public function updateHistogram(array $data): void
     {
-        $this->storeSample($data, 'histogram');
+        // Optional: implement histogram support later
     }
 
     public function updateGauge(array $data): void
@@ -59,12 +49,6 @@ class LaravelCache implements Adapter
         Cache::forget($this->prefix . 'metrics');
     }
 
-    /**
-     * Internal helper to store a new metric sample.
-     *
-     * @param array $data
-     * @param string $type
-     */
     protected function storeSample(array $data, string $type): void
     {
         $metrics = Cache::get($this->prefix . 'metrics', []);
@@ -88,19 +72,27 @@ class LaravelCache implements Adapter
             ];
         }
 
-        if (!isset($metrics[$metricKey]['samples'][$labelKey])) {
-            $metrics[$metricKey]['samples'][$labelKey] = [
-                'labelValues' => $labelValues,
-                'value' => 0,
-            ];
+        $existingSampleIndex = null;
+
+        foreach ($metrics[$metricKey]['samples'] as $index => $sample) {
+            if ($sample['labelValues'] === $labelValues) {
+                $existingSampleIndex = $index;
+                break;
+            }
         }
 
-        if ($type === 'counter') {
-            $metrics[$metricKey]['samples'][$labelKey]['value'] += $value;
-        } elseif ($type === 'gauge') {
-            $metrics[$metricKey]['samples'][$labelKey]['value'] = $value;
-        } elseif ($type === 'histogram') {
-            // Histogram support would require bucket tracking — for now, we leave this out
+        if ($existingSampleIndex !== null) {
+            if ($type === 'counter') {
+                $metrics[$metricKey]['samples'][$existingSampleIndex]['value'] += $value;
+            } elseif ($type === 'gauge') {
+                $metrics[$metricKey]['samples'][$existingSampleIndex]['value'] = $value;
+            }
+        } else {
+            $metrics[$metricKey]['samples'][] = [
+                'labelNames' => $labelNames,
+                'labelValues' => $labelValues,
+                'value' => $value,
+            ];
         }
 
         Cache::put($this->prefix . 'metrics', $metrics, now()->addHours(1));
