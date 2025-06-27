@@ -13,10 +13,8 @@ class LaravelCache implements Adapter
     {
         $rawMetrics = Cache::get($this->prefix . 'metrics', []);
         $results = [];
-
         foreach ($rawMetrics as $raw) {
             $samples = array_values($raw['samples']); // Reset numeric keys
-
             $results[] = new MetricFamilySamples([
                 'name' => $raw['name'],
                 'type' => $raw['type'],
@@ -89,6 +87,7 @@ class LaravelCache implements Adapter
             }
         } else {
             $metrics[$metricKey]['samples'][] = [
+                'name' => $name,
                 'labelNames' => $labelNames,
                 'labelValues' => $labelValues,
                 'value' => $value,

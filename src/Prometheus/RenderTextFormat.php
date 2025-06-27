@@ -39,9 +39,8 @@ class RenderTextFormat
     {
         $escapedLabels = [];
 
-        $labelNames = $metric->getLabelNames();
         if ($metric->hasLabelNames() || $sample->hasLabelNames()) {
-            $labels = array_combine(array_merge($labelNames, $sample->getLabelNames()), $sample->getLabelValues());
+           $labels = array_combine($sample->getLabelNames(), $sample->getLabelValues());
             foreach ($labels as $labelName => $labelValue) {
                 $escapedLabels[] = $labelName . '="' . $this->escapeLabelValue($labelValue) . '"';
             }
